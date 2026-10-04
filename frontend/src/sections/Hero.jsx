@@ -13,7 +13,17 @@ export default function Hero() {
   };
 
   const handleDownloadResume = () => {
-    window.open(personalInfo.resume, '_blank');
+    // Create a temporary anchor element for cross-browser compatibility
+    const link = document.createElement('a');
+    link.href = personalInfo.resume;
+    link.download = 'Kishor_Kumar_Resume.pdf';
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    
+    // Trigger download
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
