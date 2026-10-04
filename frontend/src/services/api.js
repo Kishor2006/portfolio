@@ -34,10 +34,24 @@ export const sendChatMessage = async (message) => {
  */
 export const sendContactMessage = async (formData) => {
   try {
-    const response = await api.post('/api/contact', formData);
+    console.log('📤 Sending contact message to:', API_BASE_URL);
+    const response = await api.post('/api/contact', formData, {
+      timeout: 30000 // 30 second timeout
+    });
+    console.log('✅ Contact message response:', response.data);
     return response.data;
   } catch (error) {
-    console.error('Error sending contact message:', error);
+    console.error('❌ Error sending contact message:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      apiUrl: API_BASE_URL
+    });
+    
+    if (error.code === 'ECONNABORTED') {
+      console.error('⏱️ Request timed out');
+    }
+    
     throw error;
   }
 };
