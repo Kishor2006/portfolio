@@ -27,20 +27,20 @@ export const handleContactMessage = async (req, res) => {
       });
     }
 
-    // Check SendGrid configuration
-    const emailConfigured = !!(process.env.SENDGRID_API_KEY);
-    console.log('🔧 SendGrid configured:', emailConfigured);
+    // Check Resend configuration
+    const emailConfigured = !!(process.env.RESEND_API_KEY);
+    console.log('🔧 Resend configured:', emailConfigured);
 
     // Send email with timeout
     try {
       const emailPromise = sendEmail({ name, email, message });
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Email timeout')), 25000)
+        setTimeout(() => reject(new Error('Email timeout')), 15000)
       );
       
       const emailResult = await Promise.race([emailPromise, timeoutPromise]);
       
-      // Success regardless of whether email was sent (contact is logged)
+      // Check if email was actually sent
       if (emailResult.sent) {
         const duration = Date.now() - startTime;
         console.log(`✅ Email sent successfully in ${duration}ms:`, {
@@ -48,31 +48,36 @@ export const handleContactMessage = async (req, res) => {
           email,
           timestamp: new Date().toISOString()
         });
-      } else if (emailResult.logged) {
+
+        return res.json({
+          success: true,
+          message: 'Thank you for your message! I will get back to you soon.'
+        });
+      } else {
+        // Email service not configured
         const duration = Date.now() - startTime;
-        console.log(`⚠️  Email not sent but contact logged in ${duration}ms:`, {
+        console.log(`⚠️  Email not sent (not configured) in ${duration}ms:`, {
           name,
           email,
           timestamp: new Date().toISOString()
         });
-      }
 
-      return res.json({
-        success: true,
-        message: 'Thank you for your message! I will get back to you soon.'
-      });
+        return res.status(500).json({
+          success: false,
+          message: 'Unable to send message. Please try again or email me directly at kishorhcs@gmail.com'
+        });
+      }
     } catch (emailError) {
       const duration = Date.now() - startTime;
-      console.error(`❌ Email timeout after ${duration}ms:`, {
+      console.error(`❌ Email sending failed after ${duration}ms:`, {
         error: emailError.message,
         name,
         email
       });
       
-      // Still return success - the contact attempt was received and logged
-      return res.json({
-        success: true,
-        message: 'Thank you for your message! I will get back to you soon.'
+      return res.status(500).json({
+        success: false,
+        message: 'Unable to send message. Please try again or email me directly at kishorhcs@gmail.com'
       });
     }
   } catch (error) {
