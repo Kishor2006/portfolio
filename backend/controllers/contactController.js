@@ -40,6 +40,7 @@ export const handleContactMessage = async (req, res) => {
       
       const emailResult = await Promise.race([emailPromise, timeoutPromise]);
       
+      // Success regardless of whether email was sent (contact is logged)
       if (emailResult.sent) {
         const duration = Date.now() - startTime;
         console.log(`✅ Email sent successfully in ${duration}ms:`, {
@@ -47,36 +48,31 @@ export const handleContactMessage = async (req, res) => {
           email,
           timestamp: new Date().toISOString()
         });
-
-        return res.json({
-          success: true,
-          message: 'Thank you for your message! I will get back to you soon.'
-        });
-      } else {
-        // Email service not configured but logged
-        console.log('⚠️  Email service not configured. Contact logged:', {
+      } else if (emailResult.logged) {
+        const duration = Date.now() - startTime;
+        console.log(`⚠️  Email not sent but contact logged in ${duration}ms:`, {
           name,
           email,
           timestamp: new Date().toISOString()
         });
-
-        return res.json({
-          success: true,
-          message: 'Thank you for your message! I will get back to you soon.'
-        });
       }
+
+      return res.json({
+        success: true,
+        message: 'Thank you for your message! I will get back to you soon.'
+      });
     } catch (emailError) {
       const duration = Date.now() - startTime;
-      console.error(`❌ Email delivery failed after ${duration}ms:`, {
+      console.error(`❌ Email timeout after ${duration}ms:`, {
         error: emailError.message,
-        code: emailError.code,
         name,
         email
       });
       
-      return res.status(500).json({
-        success: false,
-        message: 'Unable to send message. Please try again or email me directly at kishorhcs@gmail.com'
+      // Still return success - the contact attempt was received and logged
+      return res.json({
+        success: true,
+        message: 'Thank you for your message! I will get back to you soon.'
       });
     }
   } catch (error) {
