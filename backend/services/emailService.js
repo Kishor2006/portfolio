@@ -1,51 +1,40 @@
 /**
- * Email service for sending contact form submissions using Nodemailer with Gmail SMTP
+ * Email service for sending contact form submissions using SendGrid HTTP API
  * 
  * Configuration required in .env:
- * - SMTP_HOST=smtp.gmail.com
- * - SMTP_PORT=587
- * - SMTP_USER=your-gmail@gmail.com
- * - SMTP_PASS=your-app-password (NOT your regular Gmail password!)
+ * - SENDGRID_API_KEY=your-sendgrid-api-key
+ * - SENDER_EMAIL=verified-sender@yourdomain.com (or kishorhcs@gmail.com if verified)
  * - RECIPIENT_EMAIL=kishorhcs@gmail.com
  * 
- * To generate Gmail App Password:
- * 1. Go to Google Account settings: https://myaccount.google.com/
- * 2. Security → 2-Step Verification (must be enabled)
- * 3. App passwords → Select "Mail" and "Windows Computer"
- * 4. Copy the 16-character password and add to .env as SMTP_PASS
+ * To get SendGrid API Key:
+ * 1. Sign up at: https://signup.sendgrid.com/
+ * 2. Go to Settings → API Keys
+ * 3. Create API Key with "Mail Send" permission
+ * 4. Copy the key and add to .env as SENDGRID_API_KEY
+ * 
+ * To verify sender email:
+ * 1. Go to Settings → Sender Authentication
+ * 2. Verify a Single Sender (use kishorhcs@gmail.com)
+ * 3. Check your email and click verification link
  */
 
-import nodemailer from 'nodemailer';
+import sgMail from '@sendgrid/mail';
 
 export const sendEmail = async ({ name, email, message }) => {
-  const SMTP_HOST = process.env.SMTP_HOST;
-  const SMTP_PORT = process.env.SMTP_PORT;
-  const SMTP_USER = process.env.SMTP_USER;
-  const SMTP_PASS = process.env.SMTP_PASS;
+  const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
+  const SENDER_EMAIL = process.env.SENDER_EMAIL || 'kishorhcs@gmail.com';
   const RECIPIENT_EMAIL = process.env.RECIPIENT_EMAIL || 'kishorhcs@gmail.com';
 
-  // If email service is not configured, log and return success anyway
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
-    console.log('⚠️  Email service not configured. Contact form submission logged:');
+  // If SendGrid is not configured, log and return success anyway
+  if (!SENDGRID_API_KEY) {
+    console.log('⚠️  SendGrid not configured. Contact form submission logged:');
     console.log({ name, email, message: message.substring(0, 100), timestamp: new Date().toISOString() });
     return { success: true, logged: true, sent: false };
   }
 
   try {
-    // Create transporter with Gmail SMTP
-    const transporter = nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: parseInt(SMTP_PORT) || 587,
-      secure: false,
-      auth: {
-        user: SMTP_USER,
-        pass: SMTP_PASS,
-      },
-      // Add timeout to prevent hanging
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 10000,
-    });
+    // Configure SendGrid with API key
+    sgMail.setApiKey(SENDGRID_API_KEY);
 
     // Email content
     const timestamp = new Date().toLocaleString('en-US', {
@@ -55,8 +44,8 @@ export const sendEmail = async ({ name, email, message }) => {
     });
 
     const mailOptions = {
-      from: `"Portfolio Contact Form" <${SMTP_USER}>`,
       to: RECIPIENT_EMAIL,
+      from: SENDER_EMAIL, // Must be verified in SendGrid
       replyTo: email,
       subject: 'New Portfolio Contact Message',
       text: `
@@ -106,22 +95,23 @@ Submitted At: ${timestamp}
       `,
     };
 
-    // Send email with timeout
-    const info = await transporter.sendMail(mailOptions);
+    // Send email via SendGrid HTTP API
+    const response = await sgMail.send(mailOptions);
 
-    console.log('✅ Email sent successfully:', {
-      messageId: info.messageId,
+    console.log('✅ Email sent successfully via SendGrid:', {
+      statusCode: response[0].statusCode,
       recipient: RECIPIENT_EMAIL,
       from: name,
       timestamp: new Date().toISOString()
     });
 
-    return { success: true, sent: true, messageId: info.messageId };
+    return { success: true, sent: true, messageId: response[0].headers['x-message-id'] };
   } catch (error) {
-    // Log error but don't crash - SMTP might be blocked on hosting platform
-    console.error('❌ Email sending failed (SMTP might be blocked):', {
+    // Log error but don't crash
+    console.error('❌ SendGrid email sending failed:', {
       error: error.message,
-      code: error.code
+      code: error.code,
+      response: error.response?.body
     });
     
     // Log contact submission even if email fails

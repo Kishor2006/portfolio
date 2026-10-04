@@ -27,9 +27,9 @@ export const handleContactMessage = async (req, res) => {
       });
     }
 
-    // Check SMTP configuration
-    const smtpConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
-    console.log('🔧 SMTP configured:', smtpConfigured);
+    // Check SendGrid configuration
+    const emailConfigured = !!(process.env.SENDGRID_API_KEY);
+    console.log('🔧 SendGrid configured:', emailConfigured);
 
     // Send email with timeout
     try {
